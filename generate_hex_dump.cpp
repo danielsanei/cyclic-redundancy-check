@@ -33,7 +33,8 @@ void gen_bin_file() {
     }
 }
 
-void parse_hex_file() {
+// extract data fields from hex file
+vector<pair<string, vector<string>>> parse_hex_file() {
 
     // initialize input stream
     ifstream binFile;
@@ -61,8 +62,8 @@ void parse_hex_file() {
     }
 
     // extract data fields
-    //unordered_map<string, vector<string>> dataFields;   // declare map of data (hex, data fields)
-    vector<pair<string, vector<string>>> dataFields;
+    //unordered_map<string, vector<string>> dataFields;     // DON'T USE --> does not keep sequential order 
+    vector<pair<string, vector<string>>> dataFields;        // declare map of data (hex, data fields)
     for ( int i = 0; i < hex_values.size(); i++ ) {
 
         // get indices for variable-length data
@@ -84,6 +85,7 @@ void parse_hex_file() {
         
         // initialize map of data (hex, data fields)
         dataFields.push_back(make_pair(hex_values[i], currFields));
+        dataFields[i].first = hex_values[i];
     }
 
     // check extracted data
@@ -96,6 +98,9 @@ void parse_hex_file() {
         }
         cout << endl;
     }
+
+    // return
+    return dataFields;
 }
 
 // driver code
@@ -108,7 +113,8 @@ int main() {
     //gen_bin_file();
 
     // parse hex file
-    parse_hex_file();
+    vector<pair<string, vector<string>>> dataFields;
+    dataFields = parse_hex_file();
 
     // return
     return 0;
