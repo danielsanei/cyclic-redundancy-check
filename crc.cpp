@@ -136,12 +136,35 @@ vector<uint8_t> hex_to_binary(vector<string> hex_lines) {
             binary_bytes.push_back(curr_byte);
             cout << (int)curr_byte << " ";
         }
-
-        
     }
 
     // return
     return binary_bytes;
+}
+
+// perform CRC-8 on hex lines to compute checksum value
+uint8_t crc_8(vector<uint8_t> binary_bytes) {
+
+    // define polynomial (use standard), initial value
+    const uint8_t polynomial = 0x07;
+    uint8_t crc = 0x00;
+
+    // CRC algorithm
+    for ( auto byte : binary_bytes ) {
+        crc = crc ^ byte;                       // XOR
+        for ( int i = 0; i < 8; i++ ) {         // for each bit in current byte
+            if ( crc & 0x80 ) {                // 0x80 --> 128 --> 10000000
+                crc = (crc << 1) ^ polynomial;
+            } else {
+                crc = crc << 1;
+            }
+            crc = crc & 0xFF;                   // keep within 8 bits
+        }
+    }
+
+    // return
+    cout << endl << "crc: " << (int)crc << endl;
+    return crc;
 }
 
 // driver code
@@ -155,10 +178,12 @@ int main() {
     //gen_bin_file();
 
     // parse hex file
-    vector<string> hex_lines;
-    hex_lines = parse_hex_file();
-    vector<uint8_t> binary_bytes;
-    binary_bytes = hex_to_binary(hex_lines);
+    vector<string> hex_lines = parse_hex_file();
+    vector<uint8_t> binary_bytes = hex_to_binary(hex_lines);
+
+    // run CRC-8 algorithm to get checksum
+    uint8_t checksum = crc_8(binary_bytes);
+    cout << "checksum: " << (int)checksum << endl;
 
     // return
     return 0;
