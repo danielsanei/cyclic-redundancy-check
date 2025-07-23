@@ -12,11 +12,11 @@ using namespace std;
 void gen_bin_file() {
 
     // create binary file
-    ofstream binFile;
+    ofstream bin_file;
     
     // write to binary file, generate 10,000 random characters (file, mode flags)
-    binFile.open("bin_file.bin", ios::out | ios::binary );  // OR sets both bit flags to 1
-    if ( binFile ) {    // .dat is general data file (can be text or binary)
+    bin_file.open("bin_file.bin", ios::out | ios::binary );  // OR sets both bit flags to 1
+    if ( bin_file ) {    // .dat is general data file (can be text or binary)
         
         // Generate random number
         srand(time(0)); // set seed to current time (seconds)
@@ -24,10 +24,10 @@ void gen_bin_file() {
         for ( int i = 0; i < fileSize; i++ ) {
             int randomNum = 97 + rand() % 26;
             char randomChar = char(randomNum);
-            binFile.write(&randomChar, sizeof(char));
+            bin_file.write(&randomChar, sizeof(char));
             //cout << randomChar << endl;
         }
-        binFile.close();
+        bin_file.close();
 
     } else {
         cout << "Error opening binary file.\n" << endl;
@@ -38,20 +38,20 @@ void gen_bin_file() {
 vector<string> parse_hex_file() {
 
     // initialize input stream
-    ifstream binFile;
+    ifstream bin_file;
     vector<string> hex_values;
     
     // retrieve file contents
-    binFile.open("sample_hex.hex");
-    if ( binFile ) {
+    bin_file.open("intel_hex.hex");
+    if ( bin_file ) {
         
         // store each line of hex file
-        while ( !binFile.eof() ) {  // continue until end of file
+        while ( !bin_file.eof() ) {  // continue until end of file
             string line;
-            getline(binFile, line);
+            getline(bin_file, line);
             hex_values.push_back(line);
         }
-        binFile.close();
+        bin_file.close();
 
         // check hex values
         cout << endl << "Original Intel HEX file" << endl;
@@ -66,7 +66,7 @@ vector<string> parse_hex_file() {
 
     // extract data fields
     //unordered_map<string, vector<string>> dataFields;     // DON'T USE --> does not keep sequential order 
-    vector<pair<string, vector<string>>> dataFields;        // declare map of data (hex, data fields)
+    vector<pair<string, vector<string>>> data_fields;        // declare map of data (hex, data fields)
     vector<string> hex_lines;                               // extracted hex data
     for ( int i = 0; i < hex_values.size(); i++ ) {
 
@@ -75,21 +75,21 @@ vector<string> parse_hex_file() {
         int end = (hex_values[i].size() - 2) - start;
 
         // initialize extracted fields (ignore first semicolon)
-        vector<string> currFields;
+        vector<string> curr_fields;
         string byte_count = hex_values[i].substr(1, 2);
-        currFields.push_back(byte_count);
+        curr_fields.push_back(byte_count);
         string address = hex_values[i].substr(4, 4);
-        currFields.push_back(address);
+        curr_fields.push_back(address);
         string record_type = hex_values[i].substr(7, 2);
-        currFields.push_back(record_type);
+        curr_fields.push_back(record_type);
         string data = hex_values[i].substr(start, end);
-        currFields.push_back(data);
+        curr_fields.push_back(data);
         string checksum = hex_values[i].substr(hex_values[i].size() - 2, 2);
-        currFields.push_back(checksum);
+        curr_fields.push_back(checksum);
         
         // initialize map of data (hex, data fields), consider only data bytes (record type == 00)
         if ( record_type == "00" ) {
-            dataFields.push_back(make_pair(hex_values[i], currFields));
+            data_fields.push_back(make_pair(hex_values[i], curr_fields));
             hex_lines.push_back(data);
         }
     }
@@ -97,7 +97,7 @@ vector<string> parse_hex_file() {
     // check extracted data
     cout << endl << "Extracted Data" << endl;
     vector<string> fields = {"Byte Count: ", "Address: ", "Record Type: ", "Data: ", "Checksum: "};
-    for ( auto hex_value : dataFields ) {
+    for ( auto hex_value : data_fields ) {
         cout << "---------------------------------------------" << endl;
         cout << hex_value.first << endl;
         for ( int i = 0; i < hex_value.second.size(); i++ ) {
@@ -158,14 +158,18 @@ uint8_t crc_8(vector<uint8_t> binary_bytes) {
             } else {
                 crc = crc << 1;
             }
-            crc = crc & 0xFF;                   // keep within 8 bits
+            crc = crc & 0xFF;                   // keep within 8 bits (avoid overflow from shifting)
         }
     }
 
     // return
+    cout << endl << "crc: " << crc << endl;
     cout << endl << "crc: " << (int)crc << endl;
     return crc;
 }
+
+// stamp hex file with CRC-8 checksum
+
 
 // driver code
 int main() {
@@ -184,6 +188,9 @@ int main() {
     // run CRC-8 algorithm to get checksum
     uint8_t checksum = crc_8(binary_bytes);
     cout << "checksum: " << (int)checksum << endl;
+
+    // stamp the file with checksum
+
 
     // return
     return 0;
