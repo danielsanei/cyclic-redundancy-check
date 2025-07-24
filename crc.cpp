@@ -163,7 +163,8 @@ uint8_t crc_8(vector<uint8_t> binary_bytes) {
     }
 
     // return
-    cout << endl << "crc: " << (int)crc << endl;
+    cout << endl;
+    cout << endl << "CRC Checksum: " << (int)crc << endl;
     return crc;
 }
 
@@ -192,6 +193,48 @@ void stamp_file(vector<uint8_t> binary_bytes, uint8_t checksum) {
     }
 }
 
+// recompute CRC-8 and verify checksum
+uint8_t verify_crc() {
+
+    // create binary file
+    ifstream stamped_file;
+    
+    // open stamped file
+    stamped_file.open("stamped_file.bin", ios::in | ios::binary);
+    if ( stamped_file ) {
+
+        // read all binary bytes inside stamped file
+        vector<uint8_t> binary_bytes((istreambuf_iterator<char>(stamped_file)), istreambuf_iterator<char>());
+        stamped_file.close();
+
+        // extract data, exclude CRC checksum
+        uint8_t stamped_crc = binary_bytes.back();
+        binary_bytes.pop_back();  // remove checksum
+
+        // recompute CRC-8
+        const uint8_t polynomial = 0x07;
+        uint8_t crc = 0x00;
+        for ( auto byte : binary_bytes ) {
+            crc = crc ^ byte;                       // XOR
+            for ( int i = 0; i < 8; i++ ) {         // for each bit in current byte
+                if ( crc & 0x80 ) {                // 0x80 --> 128 --> 10000000
+                    crc = (crc << 1) ^ polynomial;
+                } else {
+                    crc = crc << 1;
+                }
+                crc = crc & 0xFF;                   // keep within 8 bits
+            }
+        }
+
+        // return resulting checksum
+        return crc;
+
+    } else {
+        cout << "Error opening binary file.\n" << endl;
+        return -1;
+    }
+}
+
 // driver code
 int main() {
 
@@ -208,10 +251,19 @@ int main() {
 
     // run CRC-8 algorithm to get checksum
     uint8_t checksum = crc_8(binary_bytes);
-    cout << "checksum: " << (int)checksum << endl;
 
     // stamp file with checksum
     stamp_file(binary_bytes, checksum);
+
+    // verify CRC-8 checksum
+    uint8_t recomputed_checksum = verify_crc();
+    cout << endl;
+    if (checksum == recomputed_checksum) {
+        cout << "CRC verification passed!" << endl;
+    } else {
+        cout << "CRC verification failed" << endl;
+        cout << "Expected: " << (int)recomputed_checksum << ", Found: " << (int)checksum << endl;
+    }
 
     // return
     return 0;
