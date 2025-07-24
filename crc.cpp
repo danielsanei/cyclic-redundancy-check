@@ -167,6 +167,31 @@ uint8_t crc_8(vector<uint8_t> binary_bytes) {
     return crc;
 }
 
+// stamp binary data with checksum byte at the end
+    // (line breaks for clarity, though standard procedure is all data bytes concatenated together)
+void stamp_file(vector<uint8_t> binary_bytes, uint8_t checksum) {
+
+    // create binary file
+    ofstream outFile;
+    
+    // write to binary file, generate 10,000 random characters (file, mode flags)
+    outFile.open("stamped_file.bin", ios::out | ios::binary );  // OR sets both bit flags to 1
+    if ( outFile ) {    // .dat is general data file (can be text or binary)
+        
+        // print all binary bytes to file
+        for ( int i = 0; i < binary_bytes.size(); i++ ) {
+            outFile.write(reinterpret_cast<const char*>(&binary_bytes[i]), sizeof(uint8_t));
+        }
+        // checksum stamp
+        char checksum_char = char(checksum);
+        outFile.write(reinterpret_cast<const char*>(&checksum), sizeof(uint8_t));
+        outFile.close();
+
+    } else {
+        cout << "Error opening binary file.\n" << endl;
+    }
+}
+
 // driver code
 int main() {
 
@@ -184,6 +209,9 @@ int main() {
     // run CRC-8 algorithm to get checksum
     uint8_t checksum = crc_8(binary_bytes);
     cout << "checksum: " << (int)checksum << endl;
+
+    // stamp file with checksum
+    stamp_file(binary_bytes, checksum);
 
     // return
     return 0;
