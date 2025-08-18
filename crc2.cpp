@@ -117,11 +117,12 @@ vector<string> parse_hex_file() {
 }
 
 // convert hex data to binary
-vector<uint8_t> hex_to_binary(vector<string> hex_lines) {
+vector<vector<uint8_t>> hex_to_binary(vector<string> hex_lines) {
 
     // declare variables
     vector<string> binary_lines;
-    vector<uint8_t> binary_bytes;
+    vector<uint8_t> line_bytes;
+    vector<vector<uint8_t>> binary_bytes;
 
     // convert hexadecimal to binary
     cout << endl << "Convert hex to binary";
@@ -133,9 +134,11 @@ vector<uint8_t> hex_to_binary(vector<string> hex_lines) {
         for ( int j = 0; j < curr_hex.size(); j += 2 ) {
             string byte_str = curr_hex.substr(j, 2);
             uint8_t curr_byte = static_cast<uint8_t>(stoul(byte_str, nullptr, 16));
-            binary_bytes.push_back(curr_byte);
+            line_bytes.push_back(curr_byte);
             cout << (int)curr_byte << " ";
         }
+        // push back bytes of current line
+        binary_bytes.push_back(line_bytes);
     }
 
     // return
@@ -143,78 +146,19 @@ vector<uint8_t> hex_to_binary(vector<string> hex_lines) {
 }
 
 // perform CRC-8 on hex lines to compute checksum value
-uint8_t crc_8(vector<uint8_t> binary_bytes) {
+vector<uint8_t> crc_8(vector<vector<uint8_t>> binary_bytes) {
 
-    // define polynomial (use standard), initial value
+    // define polynomial (use standard) and vector of checksums
     const uint8_t polynomial = 0x07;
-    uint8_t crc = 0x00;
+    vector<uint8_t> checksums;
 
     // CRC algorithm
-    for ( auto byte : binary_bytes ) {
-        crc = crc ^ byte;                       // XOR
-        for ( int i = 0; i < 8; i++ ) {         // for each bit in current byte
-            if ( crc & 0x80 ) {                // 0x80 --> 128 --> 10000000
-                crc = (crc << 1) ^ polynomial;
-            } else {
-                crc = crc << 1;
-            }
-            crc = crc & 0xFF;                   // keep within 8 bits
-        }
-    }
+    for ( auto line_bytes : binary_bytes ) {
 
-    // return
-    cout << endl;
-    cout << endl << "CRC Checksum: " << (int)crc << endl;
-    return crc;
-}
-
-// stamp binary data with checksum byte at the end
-    // (line breaks for clarity, though standard procedure is all data bytes concatenated together)
-void stamp_file(vector<uint8_t> binary_bytes, uint8_t checksum) {
-
-    // create binary file
-    ofstream outFile;
-    
-    // write to binary file, generate 10,000 random characters (file, mode flags)
-    outFile.open("stamped_file.bin", ios::out | ios::binary );  // OR sets both bit flags to 1
-    if ( outFile ) {    // .dat is general data file (can be text or binary)
-        
-        // print all binary bytes to file
-        for ( int i = 0; i < binary_bytes.size(); i++ ) {
-            outFile.write(reinterpret_cast<const char*>(&binary_bytes[i]), sizeof(uint8_t));
-        }
-        // checksum stamp
-        char checksum_char = char(checksum);
-        outFile.write(reinterpret_cast<const char*>(&checksum), sizeof(uint8_t));
-        outFile.close();
-
-    } else {
-        cout << "Error opening binary file.\n" << endl;
-    }
-}
-
-// recompute CRC-8 and verify checksum
-uint8_t verify_crc() {
-
-    // create binary file
-    ifstream stamped_file;
-    
-    // open stamped file
-    stamped_file.open("stamped_file.bin", ios::in | ios::binary);
-    if ( stamped_file ) {
-
-        // read all binary bytes inside stamped file
-        vector<uint8_t> binary_bytes((istreambuf_iterator<char>(stamped_file)), istreambuf_iterator<char>());
-        stamped_file.close();
-
-        // extract data, exclude CRC checksum
-        uint8_t stamped_crc = binary_bytes.back();
-        binary_bytes.pop_back();  // remove checksum
-
-        // recompute CRC-8
-        const uint8_t polynomial = 0x07;
+        // reset initial CRC value
         uint8_t crc = 0x00;
-        for ( auto byte : binary_bytes ) {
+        for ( auto byte : line_bytes ) {
+            // perform algorithm
             crc = crc ^ byte;                       // XOR
             for ( int i = 0; i < 8; i++ ) {         // for each bit in current byte
                 if ( crc & 0x80 ) {                // 0x80 --> 128 --> 10000000
@@ -225,13 +169,119 @@ uint8_t verify_crc() {
                 crc = crc & 0xFF;                   // keep within 8 bits
             }
         }
+        // add new line's checksum to vector
+        checksums.push_back(crc);
+    }
 
-        // return resulting checksum
-        return crc;
+    // return
+    cout << endl << "\nCRC Checksums (per line)";
+    cout << "\n------------------------" << endl;
+    for ( int i = 0; i < checksums.size(); i++ ) {
+        cout << endl << i << " " << (int)checksums[i] << endl;
+    }
+    
+    return checksums;
+}
+
+// stamp binary data with checksum byte at the end
+    // (line breaks for clarity, though standard procedure is all data bytes concatenated together)
+void stamp_file(vector<vector<uint8_t>> binary_bytes, vector<uint8_t> checksums) {
+
+    // create binary file
+    ofstream outFile;
+    
+    // write to binary file, generate 10,000 random characters (file, mode flags)
+    outFile.open("stamped_file.bin", ios::out | ios::binary );  // OR sets both bit flags to 1
+    if ( outFile ) {    // .dat is general data file (can be text or binary)
+        
+        // print all binary bytes to file and stamp each line with checksum
+        int i = 0;
+        for ( auto line_bytes : binary_bytes ) {
+
+            // get all bytes in current line
+            for ( auto byte : line_bytes ) {
+                // write bytes to file
+                outFile.write(reinterpret_cast<const char*>(&byte), sizeof(uint8_t));
+            }
+
+            // checksum stamp for current line
+            char checksum_char = char(checksums[i]);
+            outFile.write(reinterpret_cast<const char*>(&checksum_char), sizeof(uint8_t));
+            i++;
+        }
+        outFile.close();
+        
+    } else {
+        cout << "Error opening binary file.\n" << endl;
+    }
+}
+
+// recompute CRC-8 and verify checksum
+bool verify_crc(const vector<vector<uint8_t>>& binary_bytes, const vector<uint8_t>& checksums) {
+
+    // open stamped file
+    ifstream stamped_file("stamped_file.bin", ios::in | ios::binary);
+    if (stamped_file) {
+
+        // read all bytes in the stamped file
+        vector<uint8_t> stamped_data((istreambuf_iterator<char>(stamped_file)), istreambuf_iterator<char>());
+        stamped_file.close();
+
+        // define polynomial
+        const uint8_t polynomial = 0x07;
+
+        // initialize variables
+        size_t pos = 0;
+        bool all_passed = true;
+
+        // iterate through original binary lines
+        cout << endl << "Verify CRC Checksums" << endl;
+        cout << "------------------------" << endl;
+        for (size_t i = 0; i < binary_bytes.size(); ++i) {
+
+            // get entire line of data (including checksum byte at the end)
+            const vector<uint8_t>& line_data = binary_bytes[i];
+            size_t line_length = line_data.size();
+
+            // extract data and stamped checksum
+            vector<uint8_t> stamped_line_data(stamped_data.begin() + pos, stamped_data.begin() + pos + line_length);
+            uint8_t stamped_crc = stamped_data[pos + line_length];
+
+            // recompute CRC
+            uint8_t crc = 0x00;
+            for (auto byte : stamped_line_data) {
+                crc ^= byte;
+                for (int b = 0; b < 8; b++) {
+                    if (crc & 0x80)
+                        crc = (crc << 1) ^ polynomial;
+                    else
+                        crc <<= 1;
+                    crc &= 0xFF;
+                }
+            }
+
+            // display comparison results
+            cout << "\nOriginal Checksum: " << (int)stamped_crc << "\nRecomputed Checksum: " << (int)crc << endl;
+
+            // compare with stored checksum
+            cout << "Line " << i << ": ";
+            if (crc == stamped_crc) {
+                cout << "PASS" << endl;
+            } else {
+                cout << "FAIL" << endl;
+                all_passed = false;
+            }
+
+            // move position
+            pos += line_length + 1;
+        }
+
+        // return result
+        return all_passed;
 
     } else {
         cout << "Error opening binary file.\n" << endl;
-        return -1;
+        return false;
     }
 }
 
@@ -247,22 +297,23 @@ int main() {
 
     // parse hex file
     vector<string> hex_lines = parse_hex_file();
-    vector<uint8_t> binary_bytes = hex_to_binary(hex_lines);
+    vector<vector<uint8_t>> binary_bytes = hex_to_binary(hex_lines);
 
     // run CRC-8 algorithm to get checksum
-    uint8_t checksum = crc_8(binary_bytes);
+    vector<uint8_t> checksums = crc_8(binary_bytes);
 
     // stamp file with checksum
-    stamp_file(binary_bytes, checksum);
+    stamp_file(binary_bytes, checksums);
 
     // verify CRC-8 checksum
-    uint8_t recomputed_checksum = verify_crc();
+    bool result = verify_crc(binary_bytes, checksums);
+
+    // display final result
     cout << endl;
-    if (checksum == recomputed_checksum) {
-        cout << "CRC verification passed!" << endl;
+    if ( result ) {
+        cout << "Final result: PASS" << endl;
     } else {
-        cout << "CRC verification failed" << endl;
-        cout << "Expected: " << (int)recomputed_checksum << ", Found: " << (int)checksum << endl;
+        cout << "Final result: FAIL" << endl;
     }
 
     // return
